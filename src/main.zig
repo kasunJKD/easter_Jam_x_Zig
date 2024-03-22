@@ -22,6 +22,7 @@ const TileEnum = enum {
     SWITCH,
     HELLDWELLER,
     GHOST,
+    EMPTY,
 
     fn setTextures(self: @This()) rl.Rectangle {
         return switch (self) {
@@ -37,6 +38,7 @@ const TileEnum = enum {
             .SWITCH => rl.Rectangle{ .x = 96, .y = 0, .width = 16, .height = 16 },
             .HELLDWELLER => rl.Rectangle{ .x = 0, .y = 32, .width = 16, .height = 16 },
             .GHOST => rl.Rectangle{ .x = 16, .y = 32, .width = 16, .height = 16 },
+            .EMPTY => rl.Rectangle{ .x = 32, .y = 32, .width = 16, .height = 16 },
         };
     }
 };
@@ -60,6 +62,8 @@ const Tile = struct {
     type: TileEnum,
     base: bool = true,
     movable: bool = false,
+    pickable: bool = false, //for egg
+    canDamage: bool = false,
     tilepos: rl.Vector2,
 
     pub fn initTile(tileType: TileEnum) Tile {
@@ -67,13 +71,21 @@ const Tile = struct {
             .type = tileType,
             .base = switch (tileType) {
                 .GRASS, .HELLFLOOR, .WATER, .LAVA, .DOORUNLOCKED, .DOORLOCKED, .GATE, .SWITCH, .HELLDWELLER, .GHOST => true,
-                .WOODBLOCK, .EGG => false, // Example: WOODBLOCK and EGG are not base
+                .WOODBLOCK, .EGG, .EMPTY => false, // Example: WOODBLOCK and EGG are not base
             },
             .movable = switch (tileType) {
                 .WOODBLOCK => true, // Example: These can be moved or interacted with
                 else => false, // Default case for other tiles
             },
-            .tilepos = rl.Vector2{ .x = 0, .y = 0 }, // Default position, should be updated when placing the tile
+            .tilepos = rl.Vector2{ .x = 0, .y = 0 },
+            .pickable = switch (tileType) {
+                .EGG => true,
+                else => false,
+            },
+            .canDamage = switch (tileType) {
+                .GHOST, .HELLDWELLER => true,
+                else => false,
+            },
         };
     }
 };
@@ -82,7 +94,8 @@ const Level = struct {
     playerStartPos: rl.Vector2,
     levelHeight: usize = 10,
     levelWidth: usize = 10,
-    tiles: [][]Tile,
+    baseTiles: [][]Tile,
+    topLayer: [][]Tile,
 
     pub fn drawLevel(
         self: Level,
@@ -91,7 +104,7 @@ const Level = struct {
         const tileSize: usize = 64; // Size of each tile, adjust as needed
         const tileGap: usize = 5; // Gap between tiles, adjust as needed
 
-        for (self.tiles, 0..) |row, rowIndex| {
+        for (self.baseTiles, 0..) |row, rowIndex| {
             for (row, 0..) |tile, colIndex| {
                 const basePosition = rl.Vector2{
                     .x = self.playerStartPos.x + @as(f32, @floatFromInt((colIndex * (tileSize + tileGap)))),
@@ -107,6 +120,23 @@ const Level = struct {
                 const texture = tile.type.setTextures();
                 // Call the drawing function for the tile texture at finalPosition
                 // This is a placeholder function. Replace it with your actual drawing code.
+                drawTile(textureAtlas, texture, finalPosition);
+            }
+        }
+
+        for (self.topLayer, 0..) |row, rowIndex| {
+            for (row, 0..) |tile, colIndex| {
+                const basePosition = rl.Vector2{
+                    .x = self.playerStartPos.x + @as(f32, @floatFromInt((colIndex * (tileSize + tileGap)))),
+                    .y = self.playerStartPos.y + @as(f32, @floatFromInt((rowIndex * (tileSize + tileGap)))),
+                };
+
+                const finalPosition = rl.Vector2{
+                    .x = basePosition.x + tile.tilepos.x,
+                    .y = basePosition.y + tile.tilepos.y,
+                };
+
+                const texture = tile.type.setTextures();
                 drawTile(textureAtlas, texture, finalPosition);
             }
         }
@@ -151,16 +181,23 @@ pub fn main() void {
     var playerPos = rl.Vector2{ .x = 100, .y = 100 };
     // Initialize level tiles, for simplicity, only a few tiles are initialized here
     const tiles: [][]Tile = @constCast(&[_][]Tile{
-        @constCast(&[_]Tile{ Tile.initTile(.GRASS), Tile.initTile(.WATER), Tile.initTile(.HELLFLOOR) }),
-        @constCast(&[_]Tile{ Tile.initTile(.LAVA), Tile.initTile(.WOODBLOCK), Tile.initTile(.EGG) }),
-        @constCast(&[_]Tile{ Tile.initTile(.DOORLOCKED), Tile.initTile(.GATE), Tile.initTile(.SWITCH) }),
+        @constCast(&[_]Tile{ Tile.initTile(.GRASS), Tile.initTile(.GRASS), Tile.initTile(.GRASS) }),
+        @constCast(&[_]Tile{ Tile.initTile(.GRASS), Tile.initTile(.GRASS), Tile.initTile(.GRASS) }),
+        @constCast(&[_]Tile{ Tile.initTile(.GRASS), Tile.initTile(.GRASS), Tile.initTile(.GRASS) }),
     });
+    const toptiles: [][]Tile = @constCast(&[_][]Tile{
+        @constCast(&[_]Tile{ Tile.initTile(.EMPTY), Tile.initTile(.WATER), Tile.initTile(.HELLFLOOR) }),
+        @constCast(&[_]Tile{ Tile.initTile(.LAVA), Tile.initTile(.WOODBLOCK), Tile.initTile(.EGG) }),
+        @constCast(&[_]Tile{ Tile.initTile(.DOORLOCKED), Tile.initTile(.EMPTY), Tile.initTile(.SWITCH) }),
+    });
+
     // Initialize the level
     var level = Level{
         .playerStartPos = playerPos,
         .levelHeight = 3,
         .levelWidth = 3,
-        .tiles = tiles,
+        .baseTiles = tiles,
+        .topLayer = toptiles,
     };
 
     //const wallSourceRect = rl.Rectangle{ .x = 0, .y = 0, .width = 16, .height = 16 };
