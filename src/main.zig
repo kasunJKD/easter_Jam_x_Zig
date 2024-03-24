@@ -81,6 +81,10 @@ const Tile = struct {
     }
 };
 
+pub fn updateTilePosition(tilePosPtr: *rl.Vector2, newPos: rl.Vector2) void {
+    tilePosPtr.* = newPos; // Dereference the pointer and assign the new position
+}
+
 const Level = struct {
     playerStartPos: *rl.Vector2,
     levelHeight: usize = 10,
@@ -104,9 +108,15 @@ const Level = struct {
 
                 // Combine basePosition with tile's own position if necessary
                 const finalPosition = rl.Vector2{
-                    .x = basePosition.x + tile.tilepos.x,
-                    .y = basePosition.y + tile.tilepos.y,
+                    .x = basePosition.x,
+                    .y = basePosition.y,
                 };
+
+                // Since you want to modify tile, which is captured by value, use an index to access it as a pointer
+                var tilePtr = &row[colIndex]; // Correctly obtaining a pointer to the tile for mutation
+                updateTilePosition(&tilePtr.tilepos, basePosition);
+
+                print("base pos -> {} \n", .{tile.tilepos});
 
                 const texture = tile.type.setTextures();
                 // Call the drawing function for the tile texture at finalPosition
@@ -123,9 +133,15 @@ const Level = struct {
                 };
 
                 const finalPosition = rl.Vector2{
-                    .x = basePosition.x + tile.tilepos.x,
-                    .y = basePosition.y + tile.tilepos.y,
+                    .x = basePosition.x,
+                    .y = basePosition.y,
                 };
+
+                // Since you want to modify tile, which is captured by value, use an index to access it as a pointer
+                var tilePtr = &row[colIndex]; // Correctly obtaining a pointer to the tile for mutation
+                updateTilePosition(&tilePtr.tilepos, basePosition);
+
+                print("top pos -> {} \n", .{tile.tilepos});
 
                 const texture = tile.type.setTextures();
                 drawTile(textureAtlas, texture, finalPosition);
