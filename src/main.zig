@@ -3,8 +3,8 @@ const rl = @import("raylib");
 
 const print = @import("std").debug.print;
 
-const blockSize = 64;
-//const blocks = 50;
+const TILE_SIZE = 64;
+const TILE_GAP = 5;
 
 const LEVEL_WIDTH = 10;
 const LEVEL_HEIGHT = 5;
@@ -43,20 +43,11 @@ const TileEnum = enum {
     }
 };
 
-//for testing
-pub fn drawLevelTexturesByType(pos: rl.Vector2, tiletype: TileEnum, textureAtlas: rl.Texture2D) !void {
-    const Dest = rl.Rectangle{ .x = pos.x, .y = pos.y, .width = 64, .height = 64 };
-    rl.DrawTexturePro(
-        textureAtlas,
-        tiletype.setTextures(),
-        Dest,
-        rl.Vector2{ .x = 0, .y = 0 },
-        0,
-        rl.WHITE,
-    );
-}
-
 const State = struct {};
+
+const Player = struct {
+    position: rl.Vector2,
+};
 
 const Tile = struct {
     type: TileEnum,
@@ -91,7 +82,7 @@ const Tile = struct {
 };
 
 const Level = struct {
-    playerStartPos: rl.Vector2,
+    playerStartPos: *rl.Vector2,
     levelHeight: usize = 10,
     levelWidth: usize = 10,
     baseTiles: [][]Tile,
@@ -101,14 +92,14 @@ const Level = struct {
         self: Level,
         textureAtlas: rl.Texture2D,
     ) !void {
-        const tileSize: usize = 64; // Size of each tile, adjust as needed
-        const tileGap: usize = 5; // Gap between tiles, adjust as needed
+        const tileSize: usize = TILE_SIZE; // Size of each tile, adjust as needed
+        const tileGap: usize = TILE_GAP; // Gap between tiles, adjust as needed
 
         for (self.baseTiles, 0..) |row, rowIndex| {
             for (row, 0..) |tile, colIndex| {
                 const basePosition = rl.Vector2{
-                    .x = self.playerStartPos.x + @as(f32, @floatFromInt((colIndex * (tileSize + tileGap)))),
-                    .y = self.playerStartPos.y + @as(f32, @floatFromInt((rowIndex * (tileSize + tileGap)))),
+                    .x = @as(f32, @floatFromInt((colIndex * (tileSize + tileGap)))),
+                    .y = @as(f32, @floatFromInt((rowIndex * (tileSize + tileGap)))),
                 };
 
                 // Combine basePosition with tile's own position if necessary
@@ -127,8 +118,8 @@ const Level = struct {
         for (self.topLayer, 0..) |row, rowIndex| {
             for (row, 0..) |tile, colIndex| {
                 const basePosition = rl.Vector2{
-                    .x = self.playerStartPos.x + @as(f32, @floatFromInt((colIndex * (tileSize + tileGap)))),
-                    .y = self.playerStartPos.y + @as(f32, @floatFromInt((rowIndex * (tileSize + tileGap)))),
+                    .x = @as(f32, @floatFromInt((colIndex * (tileSize + tileGap)))),
+                    .y = @as(f32, @floatFromInt((rowIndex * (tileSize + tileGap)))),
                 };
 
                 const finalPosition = rl.Vector2{
@@ -144,28 +135,10 @@ const Level = struct {
 };
 
 fn drawTile(textureAtlas: rl.Texture2D, texture: rl.Rectangle, position: rl.Vector2) void {
-    const destRect = rl.Rectangle{ .x = position.x, .y = position.y, .width = 64, .height = 64 };
+    const destRect = rl.Rectangle{ .x = position.x, .y = position.y, .width = TILE_SIZE, .height = TILE_SIZE };
     const origin = rl.Vector2{ .x = 0, .y = 0 };
     rl.DrawTexturePro(textureAtlas, texture, destRect, origin, 0, rl.WHITE);
 }
-
-// pub fn draw(self: GameWorld) void {
-//     rl.BeginDrawing();
-//     rl.ClearBackground(rl.RAYWHITE);
-//     // Draw blocks and other game elements
-//     rl.EndDrawing();
-// }
-
-// pub fn update(self: *GameWorld) void {
-//     // Update game world state (e.g., player movement, collision detection)
-// }
-
-// pub fn draw(self: GameWorld) void {
-//     rl.BeginDrawing();
-//     rl.ClearBackground(rl.RAYWHITE);
-//     // Draw blocks and other game elements
-//     rl.EndDrawing();
-// }
 
 pub fn main() void {
     rl.SetConfigFlags(rl.ConfigFlags{ .FLAG_WINDOW_RESIZABLE = true });
@@ -178,7 +151,6 @@ pub fn main() void {
 
     const textureAtlas = rl.LoadTexture("src/estergamespritesheet.png");
 
-    var playerPos = rl.Vector2{ .x = 100, .y = 100 };
     // Initialize level tiles, for simplicity, only a few tiles are initialized here
     const tiles: [][]Tile = @constCast(&[_][]Tile{
         @constCast(&[_]Tile{ Tile.initTile(.GRASS), Tile.initTile(.GRASS), Tile.initTile(.GRASS) }),
@@ -191,17 +163,19 @@ pub fn main() void {
         @constCast(&[_]Tile{ Tile.initTile(.DOORLOCKED), Tile.initTile(.EMPTY), Tile.initTile(.SWITCH) }),
     });
 
+    const playerPos = rl.Vector2{ .x = 0, .y = 0 };
+    var player = Player{
+        .position = playerPos,
+    };
+
     // Initialize the level
     var level = Level{
-        .playerStartPos = playerPos,
+        .playerStartPos = &player.position,
         .levelHeight = 3,
         .levelWidth = 3,
         .baseTiles = tiles,
         .topLayer = toptiles,
     };
-
-    //const wallSourceRect = rl.Rectangle{ .x = 0, .y = 0, .width = 16, .height = 16 };
-    //const wallSourceRectDest = rl.Rectangle{ .x = 100, .y = 100, .width = 64, .height = 64 };
 
     const playerAnimation: f32 = 3;
     const playerAnimationNumframes = 3;
@@ -213,16 +187,16 @@ pub fn main() void {
         //const nextPosition = playerPos;
         if (canMove) {
             if (rl.IsKeyPressed(rl.KeyboardKey.KEY_RIGHT)) {
-                playerPos.x += blockSize + 5;
+                player.position.x += TILE_SIZE + TILE_GAP;
                 canMove = false;
             } else if (rl.IsKeyPressed(rl.KeyboardKey.KEY_LEFT)) {
-                playerPos.x -= blockSize + 5;
+                player.position.x -= TILE_SIZE + TILE_GAP;
                 canMove = false;
             } else if (rl.IsKeyPressed(rl.KeyboardKey.KEY_UP)) {
-                playerPos.y -= blockSize + 5;
+                player.position.y -= TILE_SIZE + TILE_GAP;
                 canMove = false;
             } else if (rl.IsKeyPressed(rl.KeyboardKey.KEY_DOWN)) {
-                playerPos.y += blockSize + 5;
+                player.position.y += TILE_SIZE + TILE_GAP;
                 canMove = false;
             }
         }
@@ -251,16 +225,13 @@ pub fn main() void {
             .height = 16,
         };
         const playersourceDest = rl.Rectangle{
-            .x = playerPos.x,
-            .y = playerPos.y,
-            .width = (64 * 3) / playerAnimation,
-            .height = 64,
+            .x = player.position.x,
+            .y = player.position.y,
+            .width = (TILE_SIZE * 3) / playerAnimation,
+            .height = TILE_SIZE,
         };
 
-        //rl.DrawTexturePro(textureAtlas, wallSourceRect, wallSourceRectDest, rl.Vector2{ .x = 0, .y = 0 }, 0, rl.WHITE);
-
         try level.drawLevel(textureAtlas);
-        //try drawLevelTexturesByType(rl.Vector2{ .x = 100, .y = 100 }, .GRASS, textureAtlas);
 
         rl.DrawTexturePro(textureAtlas, playersource, playersourceDest, rl.Vector2{ .x = 0, .y = 0 }, 0, rl.WHITE);
 
