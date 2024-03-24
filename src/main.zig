@@ -35,7 +35,7 @@ const TileEnum = enum {
             .DOORUNLOCKED => rl.Rectangle{ .x = 48, .y = 16, .width = 16, .height = 16 },
             .DOORLOCKED => rl.Rectangle{ .x = 64, .y = 16, .width = 16, .height = 16 },
             .GATE => rl.Rectangle{ .x = 80, .y = 0, .width = 16, .height = 16 },
-            .SWITCH => rl.Rectangle{ .x = 96, .y = 0, .width = 16, .height = 16 },
+            .SWITCH => rl.Rectangle{ .x = 96, .y = 16, .width = 16, .height = 16 },
             .HELLDWELLER => rl.Rectangle{ .x = 0, .y = 32, .width = 16, .height = 16 },
             .GHOST => rl.Rectangle{ .x = 16, .y = 32, .width = 16, .height = 16 },
             .EMPTY => rl.Rectangle{ .x = 32, .y = 32, .width = 16, .height = 16 },
@@ -116,7 +116,7 @@ const Level = struct {
                 var tilePtr = &row[colIndex]; // Correctly obtaining a pointer to the tile for mutation
                 updateTilePosition(&tilePtr.tilepos, basePosition);
 
-                print("base pos -> {} \n", .{tile.tilepos});
+                //print("base pos -> {} \n", .{tile.tilepos});
 
                 const texture = tile.type.setTextures();
                 // Call the drawing function for the tile texture at finalPosition
@@ -141,7 +141,7 @@ const Level = struct {
                 var tilePtr = &row[colIndex]; // Correctly obtaining a pointer to the tile for mutation
                 updateTilePosition(&tilePtr.tilepos, basePosition);
 
-                print("top pos -> {} \n", .{tile.tilepos});
+                //print("top pos -> {} \n", .{tile.tilepos});
 
                 const texture = tile.type.setTextures();
                 drawTile(textureAtlas, texture, finalPosition);
@@ -154,6 +154,68 @@ fn drawTile(textureAtlas: rl.Texture2D, texture: rl.Rectangle, position: rl.Vect
     const destRect = rl.Rectangle{ .x = position.x, .y = position.y, .width = TILE_SIZE, .height = TILE_SIZE };
     const origin = rl.Vector2{ .x = 0, .y = 0 };
     rl.DrawTexturePro(textureAtlas, texture, destRect, origin, 0, rl.WHITE);
+}
+
+const MoveDir = struct {
+    up: rl.Vector2 = rl.Vector2{ .x = 0, .y = -1 },
+    down: rl.Vector2 = rl.Vector2{ .x = 0, .y = 1 },
+    left: rl.Vector2 = rl.Vector2{ .x = -1, .y = 0 },
+    right: rl.Vector2 = rl.Vector2{ .x = 1, .y = 0 },
+};
+
+pub fn movePlayer(direction: *const rl.Vector2, tiles: [][]Tile, toptiles: [][]Tile, playerPos: rl.Vector2) !bool {
+    print("player pos {}\n", .{playerPos});
+
+    const targetPos = rl.Vector2{
+        .x = playerPos.x + (direction.*.x * (TILE_SIZE + TILE_GAP)),
+        .y = playerPos.y + (direction.*.y * (TILE_SIZE + TILE_GAP)),
+    };
+    print("targetPos {}\n", .{targetPos});
+
+    // Calculate the indices of the tile at the target position
+    // const rowIndex: usize = @intCast((@as(usize, @intFromFloat(@floor(targetPos.y))) / (TILE_SIZE + TILE_GAP)));
+    // const colIndex: usize = @intCast((@as(usize, @intFromFloat(@floor(targetPos.x))) / (TILE_SIZE + TILE_GAP)));
+
+    const rowIndex: i64 = @intCast(@divFloor(@as(i64, @intFromFloat(@floor(targetPos.y))), (TILE_SIZE + TILE_GAP)));
+    const colIndex: i64 = @intCast(@divFloor(@as(i64, @intFromFloat(@floor(targetPos.x))), (TILE_SIZE + TILE_GAP)));
+
+    print("rowIndex {}\n", .{rowIndex});
+    print("colIndex {}\n", .{colIndex});
+    print("xtiles {}\n", .{tiles.len});
+    print("ytiles {}\n", .{tiles[0].len});
+
+    // Check if the target indices are within the bounds of the tilemap
+    if (rowIndex < 0 or rowIndex > tiles.len - 1 or colIndex < 0 or colIndex > tiles[0].len - 1) {
+        print("Target position is out of bounds, block the movement\n", .{});
+        return false;
+    }
+
+    //prioritize checking the top layer for walkability,
+    // and falling back to the base layer if the top tile is empty.
+    const baseTile = tiles[@as(usize, @intCast(rowIndex))][@as(usize, @intCast(colIndex))];
+    print("baseTile {}\n", .{baseTile});
+    const topTile = toptiles[@as(usize, @intCast(rowIndex))][@as(usize, @intCast(colIndex))];
+    print("topTile {}\n", .{topTile});
+    const tileToCheck = if (topTile.type != TileEnum.EMPTY) topTile else baseTile;
+    print("tileToCheck {}\n", .{tileToCheck});
+
+    if (isWalkable(tileToCheck)) {
+        //playerPos = targetPos; // Move player if the target position is walkable
+        return true;
+    } else {
+        // Handle collision or block movement
+        return false;
+    }
+
+    return false;
+}
+
+fn isWalkable(tile: Tile) bool {
+    print("tile \n{}", .{tile});
+    return switch (tile.type) {
+        .GRASS, .EMPTY => true,
+        else => false,
+    };
 }
 
 pub fn main() void {
@@ -174,8 +236,8 @@ pub fn main() void {
         @constCast(&[_]Tile{ Tile.initTile(.GRASS), Tile.initTile(.GRASS), Tile.initTile(.GRASS) }),
     });
     const toptiles: [][]Tile = @constCast(&[_][]Tile{
-        @constCast(&[_]Tile{ Tile.initTile(.EMPTY), Tile.initTile(.WATER), Tile.initTile(.HELLFLOOR) }),
-        @constCast(&[_]Tile{ Tile.initTile(.LAVA), Tile.initTile(.WOODBLOCK), Tile.initTile(.EGG) }),
+        @constCast(&[_]Tile{ Tile.initTile(.EMPTY), Tile.initTile(.EMPTY), Tile.initTile(.EMPTY) }),
+        @constCast(&[_]Tile{ Tile.initTile(.EMPTY), Tile.initTile(.WOODBLOCK), Tile.initTile(.EGG) }),
         @constCast(&[_]Tile{ Tile.initTile(.DOORLOCKED), Tile.initTile(.EMPTY), Tile.initTile(.SWITCH) }),
     });
 
@@ -199,19 +261,21 @@ pub fn main() void {
     var player_current_frame: f32 = 0;
     var player_animation_frame_time: f32 = 0;
 
+    const m = MoveDir{};
+
     while (!rl.WindowShouldClose()) {
         //const nextPosition = playerPos;
         if (canMove) {
-            if (rl.IsKeyPressed(rl.KeyboardKey.KEY_RIGHT)) {
+            if (rl.IsKeyPressed(rl.KeyboardKey.KEY_RIGHT) and try movePlayer(&m.right, tiles, toptiles, player.position)) {
                 player.position.x += TILE_SIZE + TILE_GAP;
                 canMove = false;
-            } else if (rl.IsKeyPressed(rl.KeyboardKey.KEY_LEFT)) {
+            } else if (rl.IsKeyPressed(rl.KeyboardKey.KEY_LEFT) and try movePlayer(&m.left, tiles, toptiles, player.position)) {
                 player.position.x -= TILE_SIZE + TILE_GAP;
                 canMove = false;
-            } else if (rl.IsKeyPressed(rl.KeyboardKey.KEY_UP)) {
+            } else if (rl.IsKeyPressed(rl.KeyboardKey.KEY_UP) and try movePlayer(&m.up, tiles, toptiles, player.position)) {
                 player.position.y -= TILE_SIZE + TILE_GAP;
                 canMove = false;
-            } else if (rl.IsKeyPressed(rl.KeyboardKey.KEY_DOWN)) {
+            } else if (rl.IsKeyPressed(rl.KeyboardKey.KEY_DOWN) and try movePlayer(&m.down, tiles, toptiles, player.position)) {
                 player.position.y += TILE_SIZE + TILE_GAP;
                 canMove = false;
             }
