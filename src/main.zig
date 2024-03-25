@@ -38,7 +38,7 @@ const TileEnum = enum {
             .SWITCH => rl.Rectangle{ .x = 96, .y = 16, .width = 16, .height = 16 },
             .HELLDWELLER => rl.Rectangle{ .x = 0, .y = 32, .width = 16, .height = 16 },
             .GHOST => rl.Rectangle{ .x = 16, .y = 32, .width = 16, .height = 16 },
-            .EMPTY => rl.Rectangle{ .x = 32, .y = 32, .width = 16, .height = 16 },
+            .EMPTY => rl.Rectangle{ .x = 48, .y = 32, .width = 16, .height = 16 },
         };
     }
 };
@@ -47,7 +47,33 @@ const State = struct {};
 
 const Player = struct {
     position: rl.Vector2,
+    maxHealth: usize = 4,
+    currentHealth: usize = 0,
 };
+
+pub fn DrawHealthBar(player: Player, texture: rl.Texture2D) void {
+    const source = rl.Rectangle{
+        .x = 32,
+        .y = 32,
+        .width = 16,
+        .height = 16,
+    };
+
+    for ((player.maxHealth - player.currentHealth), 0..) |_, col| {
+        const basePosition = rl.Vector2{
+            .x = @as(f32, @floatFromInt((col * (TILE_SIZE + TILE_GAP)))) + 500.0,
+            .y = 0.0 + 20.0,
+        };
+
+        const dest = rl.Rectangle{
+            .x = basePosition.x,
+            .y = basePosition.y,
+            .width = 64,
+            .height = 64,
+        };
+        rl.DrawTexturePro(texture, source, dest, rl.Vector2{ .x = 0, .y = 0 }, 0, rl.RED);
+    }
+}
 
 const Tile = struct {
     type: TileEnum,
@@ -62,7 +88,10 @@ const Tile = struct {
             .type = tileType,
             .base = switch (tileType) {
                 .GRASS, .HELLFLOOR, .WATER, .LAVA, .DOORUNLOCKED, .DOORLOCKED, .GATE, .SWITCH, .HELLDWELLER, .GHOST => true,
-                .WOODBLOCK, .EGG, .EMPTY => false, // Example: WOODBLOCK and EGG are not base
+                .WOODBLOCK,
+                .EGG,
+                .EMPTY,
+                => false, // Example: WOODBLOCK and EGG are not base
             },
             .movable = switch (tileType) {
                 .WOODBLOCK => true, // Example: These can be moved or interacted with
@@ -367,6 +396,6 @@ pub fn main() void {
 
         rl.DrawTexturePro(textureAtlas, playersource, playersourceDest, rl.Vector2{ .x = 0, .y = 0 }, 0, rl.WHITE);
 
-        rl.DrawFPS(10, 10);
+        DrawHealthBar(player, textureAtlas);
     }
 }
