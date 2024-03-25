@@ -6,7 +6,7 @@ const print = @import("std").debug.print;
 const TILE_SIZE = 64;
 const TILE_GAP = 5;
 
-const LEVEL_WIDTH = 10;
+const LEVEL_WIDTH = 5;
 const LEVEL_HEIGHT = 5;
 
 const TileEnum = enum {
@@ -151,7 +151,7 @@ const Level = struct {
 };
 
 fn drawTile(textureAtlas: rl.Texture2D, texture: rl.Rectangle, position: rl.Vector2) void {
-    const destRect = rl.Rectangle{ .x = position.x, .y = position.y, .width = TILE_SIZE, .height = TILE_SIZE };
+    const destRect = rl.Rectangle{ .x = position.x + 100, .y = position.y + 100, .width = TILE_SIZE, .height = TILE_SIZE };
     const origin = rl.Vector2{ .x = 0, .y = 0 };
     rl.DrawTexturePro(textureAtlas, texture, destRect, origin, 0, rl.WHITE);
 }
@@ -171,10 +171,6 @@ pub fn movePlayer(direction: *const rl.Vector2, tiles: [][]Tile, toptiles: [][]T
         .y = playerPos.y + (direction.*.y * (TILE_SIZE + TILE_GAP)),
     };
     print("targetPos {}\n", .{targetPos});
-
-    // Calculate the indices of the tile at the target position
-    // const rowIndex: usize = @intCast((@as(usize, @intFromFloat(@floor(targetPos.y))) / (TILE_SIZE + TILE_GAP)));
-    // const colIndex: usize = @intCast((@as(usize, @intFromFloat(@floor(targetPos.x))) / (TILE_SIZE + TILE_GAP)));
 
     const rowIndex: i64 = @intCast(@divFloor(@as(i64, @intFromFloat(@floor(targetPos.y))), (TILE_SIZE + TILE_GAP)));
     const colIndex: i64 = @intCast(@divFloor(@as(i64, @intFromFloat(@floor(targetPos.x))), (TILE_SIZE + TILE_GAP)));
@@ -230,6 +226,16 @@ pub fn movePlayer(direction: *const rl.Vector2, tiles: [][]Tile, toptiles: [][]T
     if (isPickable(tileToCheck)) {
         const tileToCheckv2 = &toptiles[@as(usize, @intCast(rowIndex))][@as(usize, @intCast(colIndex))];
         tileToCheckv2.*.type = .GRASS;
+
+        for (toptiles) |row| {
+            for (row, 0..) |tile, colIndexz| {
+                if (tile.type == .DOORLOCKED) {
+                    const tilePtr = &row[colIndexz];
+                    tilePtr.*.type = .DOORUNLOCKED;
+                }
+            }
+        }
+
         return true;
     } else {
         return false;
@@ -273,14 +279,18 @@ pub fn main() void {
 
     // Initialize level tiles, for simplicity, only a few tiles are initialized here
     const tiles: [][]Tile = @constCast(&[_][]Tile{
-        @constCast(&[_]Tile{ Tile.initTile(.GRASS), Tile.initTile(.GRASS), Tile.initTile(.GRASS) }),
-        @constCast(&[_]Tile{ Tile.initTile(.GRASS), Tile.initTile(.GRASS), Tile.initTile(.GRASS) }),
-        @constCast(&[_]Tile{ Tile.initTile(.GRASS), Tile.initTile(.GRASS), Tile.initTile(.GRASS) }),
+        @constCast(&[_]Tile{ Tile.initTile(.GRASS), Tile.initTile(.GRASS), Tile.initTile(.GRASS), Tile.initTile(.GRASS), Tile.initTile(.GRASS) }),
+        @constCast(&[_]Tile{ Tile.initTile(.GRASS), Tile.initTile(.GRASS), Tile.initTile(.GRASS), Tile.initTile(.GRASS), Tile.initTile(.GRASS) }),
+        @constCast(&[_]Tile{ Tile.initTile(.GRASS), Tile.initTile(.GRASS), Tile.initTile(.GRASS), Tile.initTile(.GRASS), Tile.initTile(.GRASS) }),
+        @constCast(&[_]Tile{ Tile.initTile(.GRASS), Tile.initTile(.GRASS), Tile.initTile(.GRASS), Tile.initTile(.GRASS), Tile.initTile(.GRASS) }),
+        @constCast(&[_]Tile{ Tile.initTile(.GRASS), Tile.initTile(.GRASS), Tile.initTile(.GRASS), Tile.initTile(.GRASS), Tile.initTile(.GRASS) }),
     });
     const toptiles: [][]Tile = @constCast(&[_][]Tile{
-        @constCast(&[_]Tile{ Tile.initTile(.EMPTY), Tile.initTile(.EMPTY), Tile.initTile(.EMPTY) }),
-        @constCast(&[_]Tile{ Tile.initTile(.EMPTY), Tile.initTile(.WOODBLOCK), Tile.initTile(.EGG) }),
-        @constCast(&[_]Tile{ Tile.initTile(.DOORLOCKED), Tile.initTile(.EMPTY), Tile.initTile(.SWITCH) }),
+        @constCast(&[_]Tile{ Tile.initTile(.EMPTY), Tile.initTile(.WOODBLOCK), Tile.initTile(.EMPTY), Tile.initTile(.EMPTY), Tile.initTile(.EMPTY) }),
+        @constCast(&[_]Tile{ Tile.initTile(.EMPTY), Tile.initTile(.EMPTY), Tile.initTile(.SWITCH), Tile.initTile(.EMPTY), Tile.initTile(.EMPTY) }),
+        @constCast(&[_]Tile{ Tile.initTile(.GHOST), Tile.initTile(.EMPTY), Tile.initTile(.WOODBLOCK), Tile.initTile(.EMPTY), Tile.initTile(.EMPTY) }),
+        @constCast(&[_]Tile{ Tile.initTile(.EGG), Tile.initTile(.EMPTY), Tile.initTile(.EMPTY), Tile.initTile(.EMPTY), Tile.initTile(.GHOST) }),
+        @constCast(&[_]Tile{ Tile.initTile(.EMPTY), Tile.initTile(.GHOST), Tile.initTile(.SWITCH), Tile.initTile(.WOODBLOCK), Tile.initTile(.DOORLOCKED) }),
     });
 
     const playerPos = rl.Vector2{ .x = 0, .y = 0 };
@@ -291,8 +301,8 @@ pub fn main() void {
     // Initialize the level
     var level = Level{
         .playerStartPos = &player.position,
-        .levelHeight = 3,
-        .levelWidth = 3,
+        .levelHeight = LEVEL_HEIGHT,
+        .levelWidth = LEVEL_WIDTH,
         .baseTiles = tiles,
         .topLayer = toptiles,
     };
@@ -347,8 +357,8 @@ pub fn main() void {
             .height = 16,
         };
         const playersourceDest = rl.Rectangle{
-            .x = player.position.x,
-            .y = player.position.y,
+            .x = player.position.x + 100,
+            .y = player.position.y + 100,
             .width = (TILE_SIZE * 3) / playerAnimation,
             .height = TILE_SIZE,
         };
