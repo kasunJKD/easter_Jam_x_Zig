@@ -202,18 +202,60 @@ pub fn movePlayer(direction: *const rl.Vector2, tiles: [][]Tile, toptiles: [][]T
     if (isWalkable(tileToCheck)) {
         //playerPos = targetPos; // Move player if the target position is walkable
         return true;
+    }
+    if (isMovable(tileToCheck)) {
+        print("tileToCheckblock {}\n", .{tileToCheck});
+        const blockTargetPos = rl.Vector2{
+            .x = tileToCheck.tilepos.x + (direction.*.x * (TILE_SIZE + TILE_GAP)),
+            .y = tileToCheck.tilepos.y + (direction.*.y * (TILE_SIZE + TILE_GAP)),
+        };
+
+        const rowIndexBlock: i64 = @intCast(@divFloor(@as(i64, @intFromFloat(@floor(blockTargetPos.y))), (TILE_SIZE + TILE_GAP)));
+        const colIndexBlock: i64 = @intCast(@divFloor(@as(i64, @intFromFloat(@floor(blockTargetPos.x))), (TILE_SIZE + TILE_GAP)));
+
+        if (rowIndexBlock < 0 or rowIndexBlock > tiles.len - 1 or colIndexBlock < 0 or colIndexBlock > tiles[0].len - 1) {
+            print("Target position is out of bounds, block the movement\n", .{});
+            return false;
+        }
+
+        const tileToCheckv2 = &toptiles[@as(usize, @intCast(rowIndex))][@as(usize, @intCast(colIndex))];
+        const topTileBlock = &toptiles[@as(usize, @intCast(rowIndexBlock))][@as(usize, @intCast(colIndexBlock))];
+
+        const temp = topTileBlock.*.type;
+        topTileBlock.*.type = tileToCheckv2.*.type;
+        tileToCheckv2.*.type = temp;
+
+        return true;
+    }
+    if (isPickable(tileToCheck)) {
+        const tileToCheckv2 = &toptiles[@as(usize, @intCast(rowIndex))][@as(usize, @intCast(colIndex))];
+        tileToCheckv2.*.type = .GRASS;
+        return true;
     } else {
-        // Handle collision or block movement
         return false;
     }
 
     return false;
 }
 
+fn isMovable(tile: Tile) bool {
+    return switch (tile.type) {
+        .WOODBLOCK => true,
+        else => false,
+    };
+}
+
 fn isWalkable(tile: Tile) bool {
     print("tile \n{}", .{tile});
     return switch (tile.type) {
         .GRASS, .EMPTY => true,
+        else => false,
+    };
+}
+
+fn isPickable(tile: Tile) bool {
+    return switch (tile.type) {
+        .EGG => true,
         else => false,
     };
 }
