@@ -1,3 +1,5 @@
+//not completed have not added a retry button or game state
+
 const std = @import("std");
 const rl = @import("raylib");
 
@@ -192,7 +194,7 @@ const MoveDir = struct {
     right: rl.Vector2 = rl.Vector2{ .x = 1, .y = 0 },
 };
 
-pub fn movePlayer(direction: *const rl.Vector2, tiles: [][]Tile, toptiles: [][]Tile, playerPos: rl.Vector2) !bool {
+pub fn movePlayer(direction: *const rl.Vector2, tiles: [][]Tile, toptiles: [][]Tile, playerPos: rl.Vector2, playerptr: *Player) !bool {
     print("player pos {}\n", .{playerPos});
 
     const targetPos = rl.Vector2{
@@ -266,6 +268,9 @@ pub fn movePlayer(direction: *const rl.Vector2, tiles: [][]Tile, toptiles: [][]T
         }
 
         return true;
+    }
+    if (isHitEnemy(tileToCheck, playerptr)) {
+        return false;
     } else {
         return false;
     }
@@ -295,6 +300,31 @@ fn isPickable(tile: Tile) bool {
     };
 }
 
+fn isHitEnemy(tile: Tile, playerptr: *Player) bool {
+    return switch (tile.type) {
+        .HELLDWELLER, .GHOST => {
+            if (playerptr.*.currentHealth != playerptr.*.maxHealth) {
+                playerptr.*.currentHealth += 1;
+            }
+            return true;
+        },
+        else => false,
+    };
+}
+
+//TODO: dear me ! you need to refactor this code ............. omg this is trash
+pub fn gameoverUIDraw() void {
+    rl.DrawRectangle(0, 0, 800, 600, rl.Fade(rl.BLACK, 0.5));
+
+    // Draw "Game Over" text
+    rl.DrawText("Game Over", 320, 250, 25, rl.RED);
+
+    // Draw retry button
+    const buttonBounds = rl.Rectangle{ .x = 320, .y = 320, .width = 115, .height = 50 };
+    rl.DrawRectangleRec(buttonBounds, rl.GRAY);
+    rl.DrawText("Retry", 350, 335, 20, rl.BLACK);
+}
+
 pub fn main() void {
     rl.SetConfigFlags(rl.ConfigFlags{ .FLAG_WINDOW_RESIZABLE = true });
     rl.InitWindow(800, 600, "Hunter");
@@ -303,6 +333,7 @@ pub fn main() void {
     defer rl.CloseWindow();
 
     var canMove: bool = true;
+    var gameOver: bool = false;
 
     const textureAtlas = rl.LoadTexture("src/estergamespritesheet.png");
 
@@ -347,16 +378,16 @@ pub fn main() void {
     while (!rl.WindowShouldClose()) {
         //const nextPosition = playerPos;
         if (canMove) {
-            if (rl.IsKeyPressed(rl.KeyboardKey.KEY_RIGHT) and try movePlayer(&m.right, tiles, toptiles, player.position)) {
+            if (rl.IsKeyPressed(rl.KeyboardKey.KEY_RIGHT) and try movePlayer(&m.right, tiles, toptiles, player.position, &player)) {
                 player.position.x += TILE_SIZE + TILE_GAP;
                 canMove = false;
-            } else if (rl.IsKeyPressed(rl.KeyboardKey.KEY_LEFT) and try movePlayer(&m.left, tiles, toptiles, player.position)) {
+            } else if (rl.IsKeyPressed(rl.KeyboardKey.KEY_LEFT) and try movePlayer(&m.left, tiles, toptiles, player.position, &player)) {
                 player.position.x -= TILE_SIZE + TILE_GAP;
                 canMove = false;
-            } else if (rl.IsKeyPressed(rl.KeyboardKey.KEY_UP) and try movePlayer(&m.up, tiles, toptiles, player.position)) {
+            } else if (rl.IsKeyPressed(rl.KeyboardKey.KEY_UP) and try movePlayer(&m.up, tiles, toptiles, player.position, &player)) {
                 player.position.y -= TILE_SIZE + TILE_GAP;
                 canMove = false;
-            } else if (rl.IsKeyPressed(rl.KeyboardKey.KEY_DOWN) and try movePlayer(&m.down, tiles, toptiles, player.position)) {
+            } else if (rl.IsKeyPressed(rl.KeyboardKey.KEY_DOWN) and try movePlayer(&m.down, tiles, toptiles, player.position, &player)) {
                 player.position.y += TILE_SIZE + TILE_GAP;
                 canMove = false;
             }
@@ -364,6 +395,10 @@ pub fn main() void {
 
         if (rl.IsKeyReleased(rl.KeyboardKey.KEY_RIGHT) or rl.IsKeyReleased(rl.KeyboardKey.KEY_LEFT) or rl.IsKeyReleased(rl.KeyboardKey.KEY_UP) or rl.IsKeyReleased(rl.KeyboardKey.KEY_DOWN)) {
             canMove = true;
+        }
+
+        if (player.currentHealth == player.maxHealth) {
+            gameOver = true;
         }
 
         rl.BeginDrawing();
@@ -397,5 +432,10 @@ pub fn main() void {
         rl.DrawTexturePro(textureAtlas, playersource, playersourceDest, rl.Vector2{ .x = 0, .y = 0 }, 0, rl.WHITE);
 
         DrawHealthBar(player, textureAtlas);
+
+        if (gameOver == true) {
+            gameoverUIDraw();
+            canMove = false;
+        }
     }
 }
